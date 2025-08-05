@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nota Analisa Investasi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- New Libraries for DOCX Generation -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .tab-btn.active { border-color: #0891b2; color: #0891b2; background-color: #ecfeff; }
+        .chart-container { position: relative; width: 100%; max-width: 800px; margin-left: auto; margin-right: auto; height: 300px; max-height: 400px; }
+        /* Custom styles for modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-btn:hover,
+        .close-btn:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        /* Custom highlight style for rendering in app */
+        .highlighted-text {
+            background-color: #fef08a; /* yellow-200 */
+        }
+        .comment-text {
+            font-size: 0.8rem;
+            color: #4b5563; /* gray-600 */
+            border-left: 2px solid #6b7280; /* gray-500 */
+            padding-left: 0.5rem;
+            margin-top: 0.25rem;
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-gray-800">
+
+    <div id="modal-container" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <div id="modal-content-inner"></div>
+        </div>
+    </div>
+
+    <div class="min-h-screen flex flex-col items-center p-4">
+        <header class="w-full max-w-7xl flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-sky-700">Nota Analisa Investasi</h1>
+            <div class="flex items-center space-x-4">
+                <span id="current-user-info" class="text-lg font-medium"></span>
+                <button id="logout-btn" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-md shadow-sm hover:bg-slate-300 transition-colors">Keluar</button>
+            </div>
+        </header>
+
+        <main class="w-full max-w-7xl">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex justify-start space-x-2 mb-4" id="role-tabs">
+                    <!-- Tabs will be rendered here -->
+                </div>
+                <div id="main-content">
+                    <!-- Content will be rendered here based on role -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Access the docx library from the global window object
+            const docxLib = window.docx || {};
+            const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ShadingType } = docxLib;
+
+            const appState = {
+                memos: [
+                    {
+                        id: 1,
+                        title: "Analisa Investasi Saham TLKM",
+                        author: "Budi",
+                        createdDate: "2024-05-15",
+                        status: "Disetujui",
+                        investmentAmount: 5000000000,
+                        risks: "Volatilitas harga, perubahan regulasi",
+                        content: `Nota Analisa Investasi ini membahas potensi investasi pada saham TLKM. TLKM adalah salah satu perusahaan telekomunikasi terbesar di Indonesia dengan pangsa pasar yang kuat. Analisa fundamental menunjukkan pertumbuhan pendapatan yang stabil dan margin keuntungan yang sehat. Namun, ada beberapa risiko yang perlu dipertimbangkan, seperti persaingan yang ketat dan potensi perlambatan ekonomi global. Tim manajemen memiliki strategi yang jelas untuk ekspansi digital dan efisiensi operasional. Berdasarkan data historis dan proyeksi, investasi ini memiliki prospek yang baik dalam jangka panjang. Kami merekomendasikan untuk melakukan investasi ini.`,
+                        reviewers: [
+                            { name: "Susi", role: "peninjau", reviewed: true, decision: "Setuju", comment: "Analisa sudah komprehensif, data pendukung memadai.", highlights: [{ text: "Analisa fundamental menunjukkan pertumbuhan pendapatan", comment: "Poin ini sangat krusial, perlu ditekankan lebih lanjut.", start: 165, end: 218 }] },
+                            { name: "Joko", role: "peninjau", reviewed: true, decision: "Setuju", comment: "Saya setuju dengan rekomendasi ini.", highlights: [] }
+                        ],
+                        committee: { name: "Rina", role: "ketuakomite", reviewed: true, decision: "Setuju", comment: "Sangat baik, silakan eksekusi.", highlights: [{ text: "Kami merekomendasikan untuk melakukan investasi ini.", comment: "Saya sangat mendukung poin ini.", start: 580, end: 636 }] },
+                        history: [
+                            { timestamp: "2024-05-15T10:00:00Z", userId: "Budi", action: "Nota dibuat" },
+                            { timestamp: "2024-05-16T11:30:00Z", userId: "Susi", action: "Diperbarui oleh Peninjau (Setuju)" },
+                            { timestamp: "2024-05-16T12:00:00Z", userId: "Joko", action: "Diperbarui oleh Peninjau (Setuju)" },
+                            { timestamp: "2024-05-17T09:00:00Z", userId: "Rina", action: "Diperbarui oleh Ketua Komite (Setuju)" }
+                        ]
+                    },
+                    {
+                        id: 2,
+                        title: "Proyeksi Keuangan untuk Q3 2024",
+                        author: "Budi",
+                        createdDate: "2024-06-01",
+                        status: "Ditolak",
+                        investmentAmount: 1000000000,
+                        risks: "Ketidakpastian pasar, inflasi",
+                        content: `Dokumen ini memuat proyeksi keuangan untuk kuartal ketiga tahun 2024. Kami memproyeksikan pertumbuhan pendapatan sebesar 10% dan keuntungan bersih sebesar 5%. Proyeksi ini didasarkan pada asumsi kondisi pasar yang stabil dan tidak ada gejolak signifikan. Namun, ada beberapa faktor eksternal yang dapat mempengaruhi, seperti inflasi dan kebijakan moneter yang ketat. Kami akan terus memantau perkembangan dan menyesuaikan proyeksi jika diperlukan.`,
+                        reviewers: [
+                            { name: "Susi", role: "peninjau", reviewed: true, decision: "Revisi", comment: "Asumsi terlalu optimis, perlu disesuaikan dengan data inflasi terkini.", highlights: [{ text: "Kami memproyeksikan pertumbuhan pendapatan sebesar 10%", comment: "Angka ini tidak realistis.", start: 69, end: 119 }] },
+                            { name: "Joko", role: "peninjau", reviewed: true, decision: "Tolak", comment: "Proyeksi tidak didukung data yang kuat, tolak untuk saat ini.", highlights: [{ text: "Proyeksi ini didasarkan pada asumsi kondisi pasar yang stabil", comment: "Asumsi ini tidak berdasar.", start: 161, end: 219 }] }
+                        ],
+                        committee: { name: "Rina", role: "ketuakomite", reviewed: true, decision: "Tolak", comment: "Proyeksi perlu direvisi total, tolak untuk saat ini.", highlights: [] },
+                        history: [
+                            { timestamp: "2024-06-01T10:00:00Z", userId: "Budi", action: "Nota dibuat" },
+                            { timestamp: "2024-06-02T11:00:00Z", userId: "Susi", action: "Diperbarui oleh Peninjau (Revisi)" },
+                            { timestamp: "2024-06-02T12:00:00Z", userId: "Joko", action: "Diperbarui oleh Peninjau (Tolak)" },
+                            { timestamp: "2024-06-03T09:00:00Z", userId: "Rina", action: "Diperbarui oleh Ketua Komite (Tolak)" }
+                        ]
+                    },
+                    {
+                        id: 3,
+                        title: "Proposal Investasi Properti",
+                        author: "Susi",
+                        createdDate: "2024-06-10",
+                        status: "Dalam Tinjauan",
+                        investmentAmount: 7000000000,
+                        risks: "Risiko likuiditas, penilaian aset",
+                        content: `Proposal ini mengajukan investasi pada properti komersial di kawasan pusat bisnis. Analisa pasar menunjukkan permintaan yang tinggi dan potensi kenaikan nilai yang signifikan. Lokasi strategis dan fasilitas modern menjadikan properti ini aset yang menarik. Kami yakin investasi ini akan memberikan imbal hasil yang optimal dalam jangka menengah.`,
+                        reviewers: [
+                            { name: "Budi", role: "peninjau", reviewed: false, decision: null, comment: "", highlights: [] },
+                            { name: "Joko", role: "peninjau", reviewed: true, decision: "Setuju", comment: "Prospek properti ini terlihat bagus.", highlights: [] }
+                        ],
+                        committee: { name: "Rina", role: "ketuakomite", reviewed: false, decision: null, comment: "", highlights: [] },
+                        history: [
+                            { timestamp: "2024-06-10T09:00:00Z", userId: "Susi", action: "Nota dibuat" },
+                            { timestamp: "2024-06-11T14:00:00Z", userId: "Joko", action: "Diperbarui oleh Peninjau (Setuju)" }
+                        ]
+                    }
+                ],
+                users: [
+                    { name: "Budi", role: "pengusul" },
+                    { name: "Susi", role: "peninjau" },
+                    { name: "Joko", role: "peninjau" },
+                    { name: "Rina", role: "ketuakomite" }
+                ],
+                currentUserName: null,
+                currentRole: null,
+                selectedMemo: null,
+                selectedTab: 'dashboard'
+            };
+
+            const mainContent = document.getElementById('main-content');
+            const roleTabs = document.getElementById('role-tabs');
+            const currentUserInfo = document.getElementById('current-user-info');
+            const logoutBtn = document.getElementById('logout-btn');
+
+            // --- Modal Functions ---
+            function showModal(title, message) {
+                const modal = document.getElementById('modal-container');
+                const modalContentInner = document.getElementById('modal-content-inner');
+                modalContentInner.innerHTML = `
+                    <h2 class="text-xl font-semibold text-sky-700 mb-4">${title}</h2>
+                    <p class="text-gray-700">${message}</p>
+                    <div class="mt-4 flex justify-end">
+                        <button id="modal-close-btn" class="px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-700 transition-colors">Tutup</button>
+                    </div>
+                `;
+                modal.style.display = 'flex';
+
+                const closeModal = () => modal.style.display = 'none';
+                document.querySelector('.close-btn').onclick = closeModal;
+                document.getElementById('modal-close-btn').onclick = closeModal;
+                window.onclick = function(event) {
+                    if (event.target == modal) {
+                        closeModal();
+                    }
+                };
+            }
+            
+            // --- User Authentication ---
+            function login(userName) {
+                const user = appState.users.find(u => u.name === userName);
+                if (user) {
+                    appState.currentUserName = user.name;
+                    appState.currentRole = user.role;
+                    render();
+                } else {
+                    showModal("Login Gagal", `Nama pengguna "${userName}" tidak ditemukan. Silakan coba lagi.`);
+                }
+            }
+
+            function logout() {
+                appState.currentUserName = null;
+                appState.currentRole = null;
+                appState.selectedMemo = null;
+                appState.selectedTab = 'dashboard';
+                render();
+            }
+
+            // --- DOCX Generation Function (New Feature) ---
+            async function generateDocx(memo) {
+                // Defensive check to ensure docx is loaded
+                if (!window.docx) {
+                    showModal('Error', 'Library untuk membuat file DOCX belum dimuat. Silakan coba lagi.');
+                    console.error('Error: docx library not found on the window object.');
+                    return;
+                }
+                
+                const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ShadingType } = window.docx;
+
+                if (!memo) {
+                    showModal('Error', 'Data nota tidak ditemukan.');
+                    return;
+                }
+
+                // Function to generate content with highlights and comments
+                const generateContentWithHighlights = (content, highlights, author) => {
+                    if (!highlights || highlights.length === 0) {
+                        return [new Paragraph({ children: [new TextRun(content)] })];
+                    }
+
+                    let paragraphs = [];
+                    let lastIndex = 0;
+
+                    // Sort highlights by start index to process them in order
+                    const sortedHighlights = highlights.sort((a, b) => a.start - b.start);
+
+                    sortedHighlights.forEach(h => {
+                        // Add text before the highlight
+                        if (h.start > lastIndex) {
+                            paragraphs.push(new Paragraph({
+                                children: [new TextRun(content.substring(lastIndex, h.start))]
+                            }));
+                        }
+
+                        // Add the highlighted text
+                        const highlightedTextRun = new TextRun({
+                            text: content.substring(h.start, h.end),
+                            shading: {
+                                type: ShadingType.Solid,
+                                color: "FFFF00", // Yellow color
+                                fill: "FFFF00",
+                            }
+                        });
+                        
+                        // Add a comment for the highlight
+                        const commentId = Math.floor(Math.random() * 10000000);
+                        const commentStart = new Paragraph({ children: [ new TextRun({ text: "" }) ] });
+                        const commentEnd = new Paragraph({ children: [ new TextRun({ text: "" }) ] });
+                        
+                        paragraphs.push(new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: content.substring(h.start, h.end),
+                                    shading: { type: ShadingType.Solid, color: "FFFF00", fill: "FFFF00" }
+                                }),
+                            ],
+                            comment: {
+                                id: commentId,
+                                author: author,
+                                date: new Date(),
+                                children: [new Paragraph({ children: [new TextRun(h.comment)] })]
+                            }
+                        }));
+
+                        lastIndex = h.end;
+                    });
+
+                    // Add any remaining text after the last highlight
+                    if (lastIndex < content.length) {
+                        paragraphs.push(new Paragraph({
+                            children: [new TextRun(content.substring(lastIndex))]
+                        }));
+                    }
+                    
+                    return paragraphs;
+                };
+
+                const doc = new Document({
+                    sections: [{
+                        properties: {},
+                        children: [
+                            new Paragraph({
+                                text: memo.title,
+                                heading: HeadingLevel.TITLE,
+                                alignment: AlignmentType.CENTER
+                            }),
+                            new Paragraph({
+                                text: `Oleh: ${memo.author}`,
+                                alignment: AlignmentType.CENTER
+                            }),
+                            new Paragraph({
+                                text: `Tanggal: ${memo.createdDate}`,
+                                alignment: AlignmentType.CENTER
+                            }),
+                            new Paragraph({ text: "" }), // Spacing
+                            new Paragraph({
+                                text: `Status Nota: ${memo.status}`,
+                                heading: HeadingLevel.HEADING_2
+                            }),
+                            new Paragraph({ text: "" }),
+                            new Paragraph({
+                                text: "Ringkasan Nota Analisa",
+                                heading: HeadingLevel.HEADING_2
+                            }),
+                            new Paragraph({ text: "" }),
+                            ...generateContentWithHighlights(memo.content, [...memo.reviewers.flatMap(r => r.highlights), ...memo.committee.highlights], "Peninjau"),
+                            new Paragraph({ text: "" }),
+                            new Paragraph({
+                                text: "Detail Review",
+                                heading: HeadingLevel.HEADING_2
+                            }),
+                            new Paragraph({ text: "" }),
+                            ...memo.reviewers.map(r => new Paragraph({ text: `${r.role.toUpperCase()} (${r.name}): ${r.comment}` })),
+                            new Paragraph({ text: "" }),
+                            new Paragraph({
+                                text: `KETUA KOMITE (${memo.committee.name}): ${memo.committee.comment}`,
+                            }),
+                        ],
+                    }],
+                });
+
+                const blob = await Packer.toBlob(doc);
+                saveAs(blob, `Nota_${memo.id}_${memo.title.replace(/\s/g, '_')}.docx`);
+            }
+
+
+            // --- UI Rendering ---
+            function renderLogin() {
+                mainContent.innerHTML = `
+                    <div class="p-8">
+                        <h2 class="text-2xl font-semibold text-center mb-6">Pilih Peran Anda</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            ${appState.users.map(user => `
+                                <button onclick="login('${user.name}')" class="bg-sky-600 text-white p-4 rounded-lg shadow-md hover:bg-sky-700 transition-colors text-center">
+                                    <p class="font-bold text-lg">${user.name}</p>
+                                    <p class="text-sm">(${user.role.toUpperCase()})</p>
+                                </p>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                currentUserInfo.textContent = '';
+                logoutBtn.style.display = 'none';
+                roleTabs.innerHTML = '';
+            }
+
+            function renderTabs() {
+                roleTabs.innerHTML = `
+                    ${appState.currentRole === 'pengusul' ? `
+                        <button onclick="appState.selectedTab = 'dashboard'; renderDashboard()" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-sky-500 ${appState.selectedTab === 'dashboard' ? 'active' : ''}">Dashboard</button>
+                        <button onclick="appState.selectedTab = 'create'; renderCreateForm()" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-sky-500 ${appState.selectedTab === 'create' ? 'active' : ''}">Buat Nota Baru</button>
+                        <button onclick="appState.selectedTab = 'archive'; renderArchive()" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-sky-500 ${appState.selectedTab === 'archive' ? 'active' : ''}">Arsip Nota</button>
+                    ` : ''}
+                    ${appState.currentRole === 'peninjau' || appState.currentRole === 'ketuakomite' ? `
+                        <button onclick="appState.selectedTab = 'dashboard'; renderDashboard()" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-sky-500 ${appState.selectedTab === 'dashboard' ? 'active' : ''}">Dashboard</button>
+                        <button onclick="appState.selectedTab = 'archive'; renderArchive()" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-sky-500 ${appState.selectedTab === 'archive' ? 'active' : ''}">Arsip Nota</button>
+                    ` : ''}
+                `;
+            }
+
+            function renderDashboard() {
+                const memosForUser = appState.currentRole === 'pengusul'
+                    ? appState.memos.filter(memo => memo.author === appState.currentUserName && memo.status === 'Dalam Tinjauan')
+                    : appState.memos.filter(memo => memo.status === 'Dalam Tinjauan');
+
+                const pendingReviewMemos = appState.memos.filter(memo => {
+                    if (appState.currentRole === 'peninjau') {
+                        const reviewer = memo.reviewers.find(r => r.name === appState.currentUserName);
+                        return memo.status === 'Dalam Tinjauan' && reviewer && !reviewer.reviewed;
+                    }
+                    if (appState.currentRole === 'ketuakomite') {
+                        const committee = memo.committee;
+                        const allReviewersReviewed = memo.reviewers.every(r => r.reviewed);
+                        return memo.status === 'Dalam Tinjauan' && committee.name === appState.currentUserName && !committee.reviewed && allReviewersReviewed;
+                    }
+                    return false;
+                });
+                
+                mainContent.innerHTML = `
+                    <div class="space-y-6">
+                        <h2 class="text-2xl font-bold text-gray-700">Dashboard</h2>
+
+                        ${appState.currentRole === 'pengusul' ? `
+                            <div class="bg-gray-100 p-4 rounded-md">
+                                <h3 class="text-xl font-semibold mb-2">Nota Anda dalam Proses Tinjauan</h3>
+                                ${memosForUser.length > 0 ? `
+                                    <ul class="space-y-2">
+                                        ${memosForUser.map(memo => `
+                                            <li class="p-4 bg-white rounded-md shadow-sm flex justify-between items-center">
+                                                <span>${memo.title} - <span class="font-medium text-amber-600">${memo.status}</span></span>
+                                                <button onclick="appState.selectedMemo = ${memo.id}; renderMemoDetail()" class="px-3 py-1 bg-sky-500 text-white text-sm rounded-md hover:bg-sky-600 transition-colors">Lihat Detail</button>
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                ` : `
+                                    <p class="text-gray-500">Tidak ada nota Anda yang sedang dalam proses tinjauan.</p>
+                                `}
+                            </div>
+                        ` : ''}
+
+                        ${appState.currentRole === 'peninjau' || appState.currentRole === 'ketuakomite' ? `
+                            <div class="bg-gray-100 p-4 rounded-md">
+                                <h3 class="text-xl font-semibold mb-2">Nota Menunggu Tinjauan Anda</h3>
+                                ${pendingReviewMemos.length > 0 ? `
+                                    <ul class="space-y-2">
+                                        ${pendingReviewMemos.map(memo => `
+                                            <li class="p-4 bg-white rounded-md shadow-sm flex justify-between items-center">
+                                                <span>${memo.title} - <span class="font-medium text-blue-600">Oleh ${memo.author}</span></span>
+                                                <button onclick="appState.selectedMemo = ${memo.id}; renderMemoDetail()" class="px-3 py-1 bg-sky-500 text-white text-sm rounded-md hover:bg-sky-600 transition-colors">Lihat Detail</button>
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                ` : `
+                                    <p class="text-gray-500">Tidak ada nota yang menunggu tinjauan dari Anda.</p>
+                                `}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            function renderArchive() {
+                const archivedMemos = appState.currentRole === 'pengusul'
+                    ? appState.memos.filter(memo => memo.author === appState.currentUserName && (memo.status === 'Disetujui' || memo.status === 'Ditolak'))
+                    : appState.memos.filter(memo => (memo.status === 'Disetujui' || memo.status === 'Ditolak'));
+                
+                mainContent.innerHTML = `
+                    <div class="space-y-6">
+                        <h2 class="text-2xl font-bold text-gray-700">Arsip Nota</h2>
+                        ${archivedMemos.length > 0 ? `
+                            <ul class="space-y-4">
+                                ${archivedMemos.map(memo => `
+                                    <li class="p-4 bg-white rounded-md shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center">
+                                        <div>
+                                            <span class="font-semibold text-lg">${memo.title}</span> - 
+                                            <span class="text-sm text-gray-500">Oleh: ${memo.author}</span>
+                                            <span class="text-sm font-medium ml-2 ${memo.status === 'Disetujui' ? 'text-green-600' : 'text-red-600'}">${memo.status}</span>
+                                        </div>
+                                        <div class="mt-2 md:mt-0 space-x-2 flex items-center">
+                                            <button onclick="appState.selectedMemo = ${memo.id}; renderMemoDetail()" class="px-3 py-1 bg-sky-500 text-white text-sm rounded-md hover:bg-sky-600 transition-colors">Lihat Detail</button>
+                                            <!-- New Download Button -->
+                                            ${appState.currentRole === 'pengusul' ? `
+                                                <button onclick="generateDocx(appState.memos.find(m => m.id === ${memo.id}))" class="px-3 py-1 bg-teal-500 text-white text-sm rounded-md hover:bg-teal-600 transition-colors">Unduh Nota (DOCX)</button>
+                                            ` : ''}
+                                        </div>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        ` : `
+                            <p class="text-gray-500">Tidak ada nota yang telah disetujui atau ditolak.</p>
+                        `}
+                    </div>
+                `;
+            }
+
+            function renderMemoDetail() {
+                const memo = appState.memos.find(m => m.id === appState.selectedMemo);
+                if (!memo) return;
+
+                const isReviewer = appState.currentRole === 'peninjau';
+                const isCommittee = appState.currentRole === 'ketuakomite';
+                const isPengusul = appState.currentRole === 'pengusul';
+
+                const canReview = (isReviewer && memo.reviewers.some(r => r.name === appState.currentUserName && !r.reviewed)) ||
+                                  (isCommittee && memo.committee.name === appState.currentUserName && !memo.committee.reviewed && memo.reviewers.every(r => r.reviewed));
+
+                mainContent.innerHTML = `
+                    <div class="space-y-6">
+                        <button onclick="appState.selectedMemo = null; render()" class="text-sky-600 hover:text-sky-800 flex items-center mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Kembali
+                        </button>
+                        <h2 class="text-2xl font-bold text-gray-700">${memo.title}</h2>
+                        <div class="bg-white rounded-md shadow-sm p-6 space-y-4">
+                            <div class="flex flex-col md:flex-row md:space-x-8">
+                                <p><span class="font-semibold">Pengusul:</span> ${memo.author}</p>
+                                <p><span class="font-semibold">Tanggal:</span> ${memo.createdDate}</p>
+                                <p><span class="font-semibold">Status:</span> 
+                                    <span class="font-medium px-2 py-1 rounded-full text-white ${memo.status === 'Disetujui' ? 'bg-green-500' : memo.status === 'Ditolak' ? 'bg-red-500' : 'bg-amber-500'}">${memo.status}</span>
+                                </p>
+                            </div>
+
+                            <div class="border-t pt-4">
+                                <h3 class="text-xl font-semibold mb-2">Isi Nota</h3>
+                                <div id="memo-content-display" class="prose max-w-none text-gray-700"></div>
+                            </div>
+                            
+                            <div class="border-t pt-4">
+                                <h3 class="text-xl font-semibold mb-2">Riwayat Tinjauan</h3>
+                                <ul class="space-y-2 text-sm text-gray-600">
+                                    ${memo.history.map(item => `
+                                        <li class="bg-gray-50 p-2 rounded-md">
+                                            <span class="font-medium">${new Date(item.timestamp).toLocaleString()}</span> - 
+                                            ${item.action} oleh <span class="font-medium">${item.userId}</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+
+                            ${(isReviewer || isCommittee) && canReview ? `
+                                <div class="border-t pt-4">
+                                    <h3 class="text-xl font-semibold mb-2">Formulir Tinjauan</h3>
+                                    <form id="review-form" class="space-y-4">
+                                        <div>
+                                            <label for="reviewer-decision" class="block text-sm font-medium text-gray-700">Keputusan</label>
+                                            <select id="reviewer-decision" name="decision" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring focus:ring-sky-200 focus:ring-opacity-50">
+                                                <option value="Setuju">Setuju</option>
+                                                <option value="Revisi">Revisi</option>
+                                                <option value="Tolak">Tolak</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="reviewer-comment" class="block text-sm font-medium text-gray-700">Komentar</label>
+                                            <textarea id="reviewer-comment" name="comment" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring focus:ring-sky-200 focus:ring-opacity-50"></textarea>
+                                        </div>
+                                        <div class="flex justify-end">
+                                            <button type="submit" class="px-4 py-2 bg-sky-600 text-white rounded-md shadow-sm hover:bg-sky-700 transition-colors">Simpan Tinjauan</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+
+                // Render memo content with highlights and comments
+                const memoContentDisplay = document.getElementById('memo-content-display');
+                let memoContentHtml = memo.content;
+
+                // Combine highlights from all reviewers and committee
+                const allHighlights = [
+                    ...memo.reviewers.flatMap(r => r.highlights.map(h => ({ ...h, author: r.name, role: r.role }))),
+                    ...(memo.committee.highlights ? memo.committee.highlights.map(h => ({ ...h, author: memo.committee.name, role: memo.committee.role })) : [])
+                ];
+
+                // Sort highlights by start position to prevent rendering issues
+                allHighlights.sort((a, b) => b.start - a.start);
+
+                allHighlights.forEach(highlight => {
+                    const textToHighlight = memo.content.substring(highlight.start, highlight.end);
+                    const replacement = `
+                        <span class="highlighted-text relative group">
+                            ${textToHighlight}
+                            <span class="comment-text">
+                                <span class="font-bold text-gray-800">${highlight.author}:</span>
+                                ${highlight.comment}
+                            </span>
+                        </span>`;
+                    memoContentHtml = memoContentHtml.substring(0, highlight.start) + replacement + memoContentHtml.substring(highlight.end);
+                });
+                
+                memoContentDisplay.innerHTML = memoContentHtml;
+
+
+                if ((isReviewer || isCommittee) && canReview) {
+                    const reviewForm = document.getElementById('review-form');
+                    reviewForm.addEventListener('submit', handleReviewSubmit);
+                }
+            }
+            
+            function handleReviewSubmit(e) {
+                e.preventDefault();
+
+                const memo = appState.memos.find(m => m.id === appState.selectedMemo);
+                if (!memo) return;
+
+                const form = e.target;
+                const reviewerDecision = form.querySelector('#reviewer-decision').value;
+                const reviewerComment = form.querySelector('#reviewer-comment').value;
+
+                if (appState.currentRole === 'ketuakomite') {
+                    const committee = memo.committee;
+                    committee.reviewed = true;
+                    committee.decision = reviewerDecision;
+                    committee.comment = reviewerComment;
+
+                    if (reviewerDecision === 'Setuju') {
+                        memo.status = 'Disetujui';
+                    } else if (reviewerDecision === 'Tolak') {
+                        memo.status = 'Ditolak';
+                    }
+                    memo.history.push({
+                        timestamp: new Date().toISOString(),
+                        userId: appState.currentUserName,
+                        action: `Diperbarui oleh Ketua Komite (${reviewerDecision})`
+                    });
+
+                } else if (appState.currentRole === 'peninjau') {
+                    const currentReviewer = memo.reviewers.find(r => r.name === appState.currentUserName);
+                    if (!currentReviewer) return;
+
+                    currentReviewer.reviewed = true;
+                    currentReviewer.decision = reviewerDecision;
+                    currentReviewer.comment = reviewerComment;
+
+                    // Re-evaluate overall memo status
+                    const allReviewersReviewed = memo.reviewers.every(r => r.reviewed);
+                    const anyRejected = memo.reviewers.some(r => r.decision === 'Tolak');
+                    const allApproved = memo.reviewers.every(r => r.decision === 'Setuju');
+
+                    if (allReviewersReviewed) {
+                        if (anyRejected) {
+                            memo.status = 'Ditolak';
+                        } else if (allApproved) {
+                            memo.status = 'Disetujui';
+                        } else {
+                            // Mixed decisions or some 'Revisi'
+                            memo.status = 'Dalam Tinjauan'; 
+                        }
+                    } else {
+                        memo.status = 'Dalam Tinjauan'; // Still pending review from others
+                    }
+
+                    memo.history.push({
+                        timestamp: new Date().toISOString(),
+                        userId: appState.currentUserName,
+                        action: `Diperbarui oleh Peninjau (${currentReviewer.decision})`
+                    });
+                }
+                
+                showModal('Tinjauan Disimpan', 'Tinjauan Anda telah berhasil disimpan.');
+                appState.selectedMemo = null;
+                renderDashboard();
+            }
+
+            function renderCreateForm() {
+                if (appState.currentRole !== 'pengusul') {
+                    mainContent.innerHTML = `<p class="p-4 text-red-500">Akses ditolak. Fitur ini hanya untuk Pengusul.</p>`;
+                    return;
+                }
+
+                mainContent.innerHTML = `
+                    <div class="space-y-6">
+                        <h2 class="text-2xl font-bold text-gray-700">Buat Nota Baru</h2>
+                        <form id="create-memo-form" class="space-y-4">
+                            <div>
+                                <label for="memo-title" class="block text-sm font-medium text-gray-700">Judul Nota</label>
+                                <input type="text" id="memo-title" name="title" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring focus:ring-sky-200 focus:ring-opacity-50">
+                            </div>
+                            <div>
+                                <label for="investment-amount" class="block text-sm font-medium text-gray-700">Jumlah Investasi (IDR)</label>
+                                <input type="number" id="investment-amount" name="investmentAmount" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring focus:ring-sky-200 focus:ring-opacity-50">
+                            </div>
+                            <div>
+                                <label for="risks" class="block text-sm font-medium text-gray-700">Risiko Utama</label>
+                                <input type="text" id="risks" name="risks" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring focus:ring-sky-200 focus:ring-opacity-50">
+                            </div>
+                            <div>
+                                <label for="memo-content" class="block text-sm font-medium text-gray-700">Isi Nota Analisa</label>
+                                <textarea id="memo-content" name="content" rows="10" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring focus:ring-sky-200 focus:ring-opacity-50"></textarea>
+                            </div>
+                            <div class="flex justify-end">
+                                <button type="submit" class="px-4 py-2 bg-sky-600 text-white rounded-md shadow-sm hover:bg-sky-700 transition-colors">Kirim Nota</button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+
+                const createMemoForm = document.getElementById('create-memo-form');
+                createMemoForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const newMemo = {
+                        id: appState.memos.length + 1,
+                        title: formData.get('title'),
+                        author: appState.currentUserName,
+                        createdDate: new Date().toISOString().split('T')[0],
+                        status: "Dalam Tinjauan",
+                        investmentAmount: parseInt(formData.get('investmentAmount')),
+                        risks: formData.get('risks'),
+                        content: formData.get('content'),
+                        reviewers: appState.users.filter(u => u.role === 'peninjau').map(u => ({ name: u.name, role: 'peninjau', reviewed: false, decision: null, comment: "", highlights: [] })),
+                        committee: { name: appState.users.find(u => u.role === 'ketuakomite').name, role: 'ketuakomite', reviewed: false, decision: null, comment: "", highlights: [] },
+                        history: [{ timestamp: new Date().toISOString(), userId: appState.currentUserName, action: "Nota dibuat" }]
+                    };
+                    appState.memos.push(newMemo);
+                    showModal('Nota Terkirim', 'Nota analisa Anda telah berhasil dikirim dan menunggu tinjauan.');
+                    appState.selectedTab = 'dashboard';
+                    renderDashboard();
+                });
+            }
+
+            function render() {
+                if (appState.currentUserName) {
+                    currentUserInfo.textContent = `Masuk sebagai: ${appState.currentUserName} (${appState.currentRole.toUpperCase()})`;
+                    logoutBtn.style.display = 'block';
+                    renderTabs();
+                    if (appState.selectedMemo) {
+                        renderMemoDetail();
+                    } else if (appState.selectedTab === 'create') {
+                        renderCreateForm();
+                    } else if (appState.selectedTab === 'archive') {
+                        renderArchive();
+                    } else {
+                        renderDashboard();
+                    }
+                } else {
+                    renderLogin();
+                }
+            }
+            
+            // Expose login function to global scope for onclick handler
+            window.login = login;
+            window.generateDocx = generateDocx;
+
+            // Event listeners
+            logoutBtn.addEventListener('click', logout);
+
+            // Initial render
+            render();
+        });
+    </script>
+</body>
+</html>
